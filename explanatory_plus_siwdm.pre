@@ -1,0 +1,33 @@
+# precision file to be passed as input in order to achieve at least percent precision on scalar Cls
+hyper_flat_approximation_nu = 7000.
+transfer_neglect_delta_k_S_t0 = 0.17
+transfer_neglect_delta_k_S_t1 = 0.05
+transfer_neglect_delta_k_S_t2 = 0.17
+transfer_neglect_delta_k_S_e = 0.13
+delta_l_max=1000
+
+evolver = 0
+
+#Change if neccesary!
+k_per_decade_for_pk = 30
+
+#Higher numbers (up to 40ish) can improve precision at higher k
+l_max_ncdm=20
+
+#Ignore ncdm fluid approx., important!
+ncdm_fluid_approximation = 3
+
+#This is one of the most important precision parameters in this case, up to 1e-14 can improve precision
+tol_ncdm_bg = 5.000e-04
+tol_ncdm_synchronous = 5.000e-04
+tol_ncdm_newtonian = 5.000e-04
+
+#Added params for siwdm! 
+#Estimation method for l>2 moments in tca approx. (0: \Psi_l>2 = 0, 1: tridiagonal matrix method) 
+ncdm_ic_estimation_method = 0
+
+#Closing approxmination for hierarchies (0: Ma&Bertschiner method, 1:Unused)
+ncdm_lmax_method = 0
+
+#Trigger for TCA approximation (in units of tau_rel/(tau_k or tau_h)) 
+ncdm_si_tca_trigger = 1.0

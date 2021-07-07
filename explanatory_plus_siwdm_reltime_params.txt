@@ -1,0 +1,5 @@
+mass= 1.110504E+04 eV 
+model= CV 
+constant= 1.520828E-14 
+psd_type= nonresonant 
+psd_file=  
