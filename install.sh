@@ -16,6 +16,8 @@ cp explanatory_plus_siwdm.ini ./class_public-2.7
 
 cp explanatory_plus_siwdm.pre ./class_public-2.7
 
+cp cl_permille_siwdm.pre ./class_public-2.7
+
 cp explanatory_plus_siwdm_reltime.dat ./class_public-2.7
 
 cp explanatory_plus_siwdm_reltime_params.txt ./class_public-2.7
