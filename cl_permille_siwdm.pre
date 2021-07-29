@@ -1,4 +1,4 @@
-# precision file for a quick run of expanatory_plus_siwdm.ini
+# precision file to be passed as input in order to achieve at least percent precision on scalar Cls
 hyper_flat_approximation_nu = 7000.
 transfer_neglect_delta_k_S_t0 = 0.17
 transfer_neglect_delta_k_S_t1 = 0.05
@@ -9,18 +9,18 @@ delta_l_max=1000
 evolver = 0
 
 #Change if neccesary!
-k_per_decade_for_pk = 20
+k_per_decade_for_pk = 40
 
 #Higher numbers (up to 40ish) can improve precision at higher k
-l_max_ncdm=6
+l_max_ncdm=25
 
 #Ignore ncdm fluid approx., important!
 ncdm_fluid_approximation = 3
 
 #This is one of the most important precision parameters in this case, up to 1e-14 can improve precision
-tol_ncdm_bg = 1.000e-03
-tol_ncdm_synchronous = 1.000e-02
-tol_ncdm_newtonian = 1.000e-02
+tol_ncdm_bg = 1.000e-08
+tol_ncdm_synchronous = 1.000e-06
+tol_ncdm_newtonian = 1.000e-06
 
 #Added params for siwdm! 
 #Estimation method for l>2 moments in tca approx. (0: \Psi_l>2 = 0, 1: tridiagonal matrix method) 
