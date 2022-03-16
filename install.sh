@@ -28,10 +28,22 @@ cd ./class_public-2.7
 
 make clean
 
-make
+make all
 
 echo "Rebuild Complete!"
 
 echo "SIWDM module sucessfully installed on top of CLASS v2.7.2 at"$PWD
 
+echo "Installing classy. Please check that the command 'python' points to a valid python 2.x installation. "
+
+cd ./python
+
+python setup.py build
+
+python setup.py install --user
+
+echo "Succesfully built the classy extension for python."
+
 echo "Open explanatory_plus_siwdm.ini to get started and run the program using ./class explanatory_plus_siwdm.ini explanatory_plus_siwdm.pre "
+
+echo "Otherwise, check Simple_SIWDM_PS.py to get started on the classy extension for python."
