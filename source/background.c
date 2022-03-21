@@ -1900,7 +1900,7 @@ int background_si_ncdm_init(
       //try to open file
       taufile = fopen(pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_,"r");
       class_test(taufile == NULL,pba->error_message,
-                 "Could not open file %s!",pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_);
+                 "Could not open file %s for ncdm species %d!",pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_, k);
 
       if(pba->background_si_verbose>1){
         printf("Successfuly opened file %s\n", pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_);
@@ -2036,7 +2036,6 @@ int background_si_ncdm_init(
 
     else{
       class_test( (pba->ncdm_si_type[k]>=2) , pba->error_message, "Self Interaction type 2, 3 not yet implemented!");
-      filenum++;
     }
 
   }
