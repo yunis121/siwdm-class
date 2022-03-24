@@ -2027,7 +2027,7 @@ int perturb_workspace_init(
     /*SIWDM - Define the indexes for the different approximation regimes*/
 
     if (ppt->perturbations_verbose>4) printf("In perturb_workspace_init: pba->has_si_ncdm = %d \n", pba->has_si_ncdm);
-    class_define_index(ppw->index_ap_ncdmtca_ncdm1, pba->has_si_ncdm, index_ap, pba->N_ncdm);
+    class_define_index(ppw->index_ap_ncdmtca_ncdm1, pba->has_si_ncdm, index_ap, pba->N_si_ncdm);
 
     if (ppt->perturbations_verbose>4) {
       if(pba->has_si_ncdm== _TRUE_ ){
@@ -2058,10 +2058,11 @@ int perturb_workspace_init(
       ppw->approx[ppw->index_ap_ncdmfa]=(int)ncdmfa_off;
 
       /*SIWDM - As default TCA is on*/
-      if (pba->has_si_ncdm == _TRUE_){
-        int n_ncdm;
-        for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
-          ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] = (int)ncdmtca_on;
+      int n_ncdm, n_si_ncdm;
+      for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
+        if (pba->ncdm_si_type[n_ncdm] >= 1){
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+          ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] = (int)ncdmtca_on;
         }
       }
     }
@@ -2222,8 +2223,9 @@ int perturb_solve(
   int (*perhaps_print_variables)();
   int index_ikout;
 
-  /* Relaxation Time */
+  /* SI Variables */
   double tau_rel;
+  int n_si_ncdm;
 
   /** - initialize indices relevant for back/thermo tables search */
   ppw->last_index_back=0;
@@ -2306,11 +2308,13 @@ int perturb_solve(
                  ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]);
 
 
-      if (pba->has_si_ncdm == _TRUE_)  {
+      if (pba->ncdm_si_type[n_ncdm] >= 1)  {
 
         if (pba->is_early_coupled[n_ncdm] == _TRUE_) {
 
-          tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_ncdm] / ppw->pvecback[pba->index_bg_a] ;
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
+          tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_si_ncdm] / ppw->pvecback[pba->index_bg_a] ;
 
           if(ppt->perturbations_verbose>3){
             printf("Testing si_ncdm_tca approxiamtion at initial testing time pba->tau_table[0] ...\n");
@@ -2392,10 +2396,11 @@ int perturb_solve(
 
   // We assume that if the species is sufficiently relativistic then it is early enough, 
   // here we just test it through console output
-  if(pba->has_si_ncdm == _TRUE_){
-    if(ppt->perturbations_verbose>2){
-      for(n_ncdm=0;n_ncdm<pba->N_ncdm;n_ncdm++){
-        tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_ncdm] / ppw->pvecback[pba->index_bg_a] ;
+  for(n_ncdm=0;n_ncdm<pba->N_ncdm;n_ncdm++){
+    if(pba->ncdm_si_type[n_ncdm] >= 1){
+      if(ppt->perturbations_verbose>2){
+        n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+        tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_si_ncdm] / ppw->pvecback[pba->index_bg_a] ;
         printf("Found minimum tau value to be %e for mode k=%e. For this value, tau_rel=%e, tau_k=%e and tau_h=%e\n",
               tau,
               k,
@@ -2863,6 +2868,10 @@ int perturb_find_approximation_switches(
 
   int n_ncdm;
 
+  /*SI Output Vars*/
+
+  int n_si_ncdm;
+
   /** - write in output arrays the initial time and approximation */
 
   interval_limit[0]=tau_ini;
@@ -2878,26 +2887,27 @@ int perturb_find_approximation_switches(
              ppt->error_message,
              ppt->error_message);
 
-  if (pba->has_si_ncdm == _TRUE_ ){
+  /*if (pba->has_si_ncdm == _TRUE_ ){
     if (ppt->perturbations_verbose>2){
       printf("perturb_find_approximation_switches called. Number of intervals set to: %d\n at mode k=%e", interval_number, k );
-      printf("Number of intervals with respect to ncdm_tca for species 0 at mode k=%e: %d \n",
+      printf("Number of intervals with respect to ncdm_tca for SI species 0 at mode k=%e: %d \n",
       k,
       interval_number_of[ppw->index_ap_ncdmtca_ncdm1] );
     }
-  }
+  }*/
 
   for (index_ap=0; index_ap<ppw->ap_size; index_ap++)
     interval_approx[0][index_ap]=ppw->approx[index_ap];
 
-  if (pba->has_si_ncdm == _TRUE_){
-    if(ppt->perturbations_verbose>2){
-      for (n_ncdm =0; n_ncdm<pba->N_ncdm; n_ncdm++){
+  if(ppt->perturbations_verbose>2){
+    for (n_ncdm =0; n_ncdm<pba->N_ncdm; n_ncdm++){
+      if (pba->ncdm_si_type[n_ncdm] >= 1){
+        n_si_ncdm = pba->ncdm_si_index[n_ncdm];
         printf("At mode k=%e, at aproximation interval %d, ncdm_tca for species %d is set to %d \n", 
                 k,
                 0,
-                n_ncdm,
-                interval_approx[0][ppw->index_ap_ncdmtca_ncdm1+n_ncdm]);
+                n_ncdm+1,
+                interval_approx[0][ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm]);
       }
     }
   }
@@ -3027,15 +3037,16 @@ int perturb_find_approximation_switches(
       for (index_ap=0; index_ap<ppw->ap_size; index_ap++) {
         interval_approx[index_switch][index_ap]=ppw->approx[index_ap];
 
-        if (pba->has_si_ncdm == _TRUE_ ){
-          if (ppt->perturbations_verbose>2) {
-            for (n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
-              if (index_ap == ppw->index_ap_ncdmtca_ncdm1 + n_ncdm){
+        if (ppt->perturbations_verbose>2) {
+          for (n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
+            if (pba->ncdm_si_type[n_ncdm] >= 1){
+              n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+              if (index_ap == ppw->index_ap_ncdmtca_ncdm1 + n_si_ncdm){
                 printf("At mode k=%e, at aproximation interval %d, ncdm_tca for species %d is set to %d. \n", 
                         k,
                         index_switch,
-                        n_ncdm,
-                        interval_approx[index_switch][ppw->index_ap_ncdmtca_ncdm1+n_ncdm]);
+                        n_ncdm+1,
+                        interval_approx[index_switch][ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm]);
               }
             }
           }
@@ -3069,9 +3080,9 @@ int perturb_find_approximation_switches(
       }
 
       /*SIWDM*/
-      if (pba->has_si_ncdm == _TRUE_ ){
+      for(n_ncdm=0;n_ncdm<pba->N_ncdm;n_ncdm++){
         if( (num_switching_at_given_time != 1) ){
-          for(n_ncdm=0;n_ncdm<pba->N_ncdm;n_ncdm++){
+          if (pba->ncdm_si_type[n_ncdm] >= 1){
             class_test(  ( ( (interval_approx[index_switch-1][ppw->index_ap_ncdmtca_ncdm1+n_ncdm]==(int)ncdmtca_on) &&
                               (interval_approx[index_switch][ppw->index_ap_ncdmtca_ncdm1+n_ncdm]==(int)ncdmtca_off) ) && 
                             ( (interval_approx[index_switch-1][ppw->index_ap_ncdmfa]==(int)ncdmfa_off) &&
@@ -3118,11 +3129,12 @@ int perturb_find_approximation_switches(
             }
 
             /*SIWDM*/
-            if (pba->has_si_ncdm == _TRUE_){
-              for (n_ncdm =0; n_ncdm<pba->N_ncdm; n_ncdm++){
-                if ((interval_approx[index_switch-1][ppw->index_ap_ncdmtca_ncdm1+n_ncdm]==(int)ncdmtca_on) &&
-                    (interval_approx[index_switch][ppw->index_ap_ncdmtca_ncdm1+n_ncdm]==(int)ncdmtca_off)) {
-                  fprintf(stdout,"Mode k=%e: will switch off ncdm self-interaction TCA approximation for species %d at tau=%e\n",k,n_ncdm,interval_limit[index_switch]);
+            for (n_ncdm =0; n_ncdm<pba->N_ncdm; n_ncdm++){
+              if (pba->ncdm_si_type[n_ncdm] >= 1){
+                n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+                if ((interval_approx[index_switch-1][ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm]==(int)ncdmtca_on) &&
+                    (interval_approx[index_switch][ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm]==(int)ncdmtca_off)) {
+                  fprintf(stdout,"Mode k=%e: will switch off ncdm self-interaction TCA approximation for species %d at tau=%e\n",k,n_ncdm+1,interval_limit[index_switch]);
                 }
               }
             }
@@ -3237,6 +3249,7 @@ int perturb_vector_init(
 
   /** NR SIWDM variables */
   double T_over_m, factor_prime;
+  int n_si_ncdm;
 
   /** - allocate a new perturb_vector structure to which ppw-->pv will point at the end of the routine */
 
@@ -3371,11 +3384,13 @@ int perturb_vector_init(
 
       for(n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
         // Set value of ppv->l_max_ncdm:
-        // The cases are separate if has_si_ncdm is true or not: if there is no si_ncdm then the approximation indices are not defined!
-        if (pba->has_si_ncdm == _TRUE_){
+        // The cases are separate if the species is SI or not: if the species is not self interacting then the approximation indices are not defined!
+        if (pba->ncdm_si_type[n_ncdm]>=1){
+
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
 
           if( (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_off) 
-            && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int) ncdmtca_off) ) {
+            && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int) ncdmtca_off) ) {
             //Case of no approximations
             /* reject inconsistent values of the number of mutipoles in ultra relativistic neutrino hierarchy */
 
@@ -3388,7 +3403,7 @@ int perturb_vector_init(
 
           }
           else if ( (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on) 
-            && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int) ncdmtca_off) ){
+            && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int) ncdmtca_off) ){
             // In the fluid approximation, hierarchy is cut at lmax = 2 and q dependence is integrated out:
 
             ppv->l_max_ncdm[n_ncdm] = 2;
@@ -3687,14 +3702,16 @@ int perturb_vector_init(
 
         /*SIWDM*/
 
-        if (pba->has_si_ncdm == _TRUE_) {
+        for(n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
 
-          for(n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
+          if (pba->ncdm_si_type[n_ncdm] >= 1) {
+
+            n_si_ncdm = pba->ncdm_si_index[n_ncdm];
 
             if(ppt->perturbations_verbose>3){
-              printf("New vector instance initialized: n_ncdm= %d, ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm]= %d, is_early_coupled=%d \n",
+              printf("New vector instance initialized: n_ncdm= %d, ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm]= %d, is_early_coupled=%d \n",
                     n_ncdm, 
-                    ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm],
+                    ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm],
                     pba->is_early_coupled[n_ncdm]);
             }
 
@@ -4033,13 +4050,15 @@ int perturb_vector_init(
 
         for(n_ncdm = 0; n_ncdm < ppv->N_ncdm; n_ncdm++){
 
-          //Cases need to be separates if has_si_ncdm is on, as approximation indices are not defined otherwise
-          if (pba->has_si_ncdm == _TRUE_){
+          //Cases need to be separated if the species is self interacting, as approximation indices are not defined otherwise
+          if (pba->ncdm_si_type[n_ncdm] >= 1){
 
             /* In the case of switching fluid approx for SI-WDM:
              Only do all of this if SI tight coupling is off. If it is, just copy the variables */
 
-            if ((pa_old[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_off) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_off)){
+            n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
+            if ((pa_old[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_off) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_off)){
 
               if ((pa_old[ppw->index_ap_ncdmfa] == (int)ncdmfa_off) && (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on)) {
 
@@ -4176,7 +4195,7 @@ int perturb_vector_init(
                 ppv->y[ppv->index_pt_psi0_ncdm1+ncdm_l_size*n_ncdm+2] *=2.0/3.0*factor/rho_plus_p_ncdm;
               }
             }
-            else if ((pa_old[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_on) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_on)){
+            else if ((pa_old[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_on) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_on)){
 
               if ((pa_old[ppw->index_ap_ncdmfa] == (int)ncdmfa_off) && (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on)) {
 
@@ -4398,11 +4417,13 @@ int perturb_vector_init(
          approximation. Provide correct initial conditions to new set
          of variables */
 
-      if ( (pba->has_ncdm == _TRUE_) && (pba->has_si_ncdm == _TRUE_) ) {
+      for (n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
 
-        for (n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
+        if ( (pba->has_ncdm == _TRUE_) && (pba->ncdm_si_type[n_ncdm] >= 1) ) {
 
-          if ((pa_old[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_on) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_off)) {
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
+          if ((pa_old[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_on) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_off)) {
 
             if (ppt->perturbations_verbose>2)
               fprintf(stdout,"Mode k=%e: switch off ncdm tight-coupling approximation of species %d at tau=%e\n",k,n_ncdm,tau);
@@ -4865,6 +4886,9 @@ int perturb_initial_conditions(struct precision * ppr,
   double velocity_tot;
   double s2_squared;
 
+  /* Some extra vars for SI ncdm*/
+  int n_si_ncdm;
+
   /** --> For scalars */
 
   if (_scalars_) {
@@ -5305,11 +5329,13 @@ int perturb_initial_conditions(struct precision * ppr,
       for (n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
 
         //Separate cases for has_si_ncdm true or not: if si_ncdm is not detected, tca approximation is not defined!
-        if (pba->has_si_ncdm == _TRUE_){
+        if (pba->ncdm_si_type[n_ncdm]>=0){
 
           if (ppt->perturbations_verbose>6) printf("In perturb_initial_conditions: Detected has_si_ncdm as _TRUE_!\n");
 
-          if ( (pba->is_early_coupled[n_ncdm] == _TRUE_) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_on ) ){
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
+          if ( (pba->is_early_coupled[n_ncdm] == _TRUE_) && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_on ) ){
 
             // Here, we handle the case of tight coupling approximation. In this case, we only track 0 and 1 moments 
 
@@ -5620,6 +5646,7 @@ int perturb_approximations(
 
   /* SIWDM Variables*/
   double tau_rel, mean_epsilon, a;
+  int n_si_ncdm;
 
   /** - compute Fourier mode time scale = \f$ \tau_k = 1/k \f$ */
 
@@ -5728,8 +5755,9 @@ int perturb_approximations(
         ppw->approx[ppw->index_ap_ncdmfa] = (int)ncdmfa_off;
       }
 
-      if (pba->has_si_ncdm == _TRUE_){
-        for(n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
+      for(n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++){
+
+        if (pba->ncdm_si_type[n_ncdm] >= 1 ){
 
           /*Here, we define the ncdm tight coupling approximation. Is should be set if tau_rel is both smaller than
           tau_h and tau_k*mean_epsilon. If tau_rel is either inf or a variation of NAN, then we assume it underflowed,
@@ -5737,13 +5765,14 @@ int perturb_approximations(
           /* Why the a? We expect tables in physical values, need to be converted to comoving! */
 
           a = ppw->pvecback[pba->index_bg_a];
-          tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_ncdm] / a ;
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+          tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_si_ncdm] / a ;
           mean_epsilon = sqrt( 1 + a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm] );
 
           if ( ( tau_rel / ( tau_k * mean_epsilon )  < 1./ ppr->ncdm_si_tca_trigger ) &&
           ( tau_rel / tau_h < 1./ ppr->ncdm_si_tca_trigger ) ) {
 
-            ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] = (int) ncdmtca_on;
+            ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] = (int) ncdmtca_on;
 
             if (ppt->perturbations_verbose>6){
               printf("Calculated ncdm_tca approx to be ON for species %d at time tau=%e, temperature T=%e for k=%e. Tau_rel=%e, Tau_k= %e, Tau_h= %e \n",
@@ -5759,7 +5788,7 @@ int perturb_approximations(
           }
           else if ( isnormal(tau_rel) ) {
 
-            ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] = (int) ncdmtca_off;
+            ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] = (int) ncdmtca_off;
 
             if (ppt->perturbations_verbose>6) {
               printf("Calculated ncdm_tca approx to be OFF for species %d at time tau=%e, temperature T=%e for k=%e. Tau_rel=%e, Tau_k= %e, Tau_h= %e \n",
@@ -5775,7 +5804,7 @@ int perturb_approximations(
           }
           else{
 
-            ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] = (int) ncdmtca_on;
+            ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] = (int) ncdmtca_on;
 
             if (ppt->perturbations_verbose>1){
               printf("WARNING! relaxation time underflow. Calculated ncdm_tca approx to be ON for species %d at time tau=%e, temperature T=%e for k=%e. Tau_rel=%e, Tau_k= %e, Tau_h= %e \n",
@@ -5793,7 +5822,7 @@ int perturb_approximations(
           //ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] = (int) ncdmtca_on;
           if(ppt->perturbations_verbose>6){
             printf("Executed perturb_approximations: Self Interaction Tight Coupling approximation set to %d\n"
-              , ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] );
+              , ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] );
           }
         }
       }
@@ -5897,6 +5926,8 @@ int perturb_timescale(
   double tau_c;
   /* (d) time scale of self interactions, conformal relaxation time*/
   double tau_rel;
+  /* (e) time scale of Fourier mode for ncdm (rescaled by mean energy) \f$ \tau_ncdm = \sqrt{1+a^2m^2}/k \f$ */
+  double tau_ncdm;
 
   /* various pointers allowing to extract the fields of the
      parameter_and_workspace input structure */
@@ -5944,8 +5975,17 @@ int perturb_timescale(
 
     *timescale = tau_h;
 
-    if ((ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) || (pba->has_ncdm == _TRUE_))
+    if ((ppw->approx[ppw->index_ap_rsa] == (int)rsa_off))
       *timescale = MIN(tau_k,*timescale);
+
+    /* ncdm fixed Fourier timescale */
+
+    if (pba->has_ncdm == _TRUE_){
+      for (int n_ncdm =0; n_ncdm < pba->N_ncdm; n_ncdm++){
+        tau_ncdm = sqrt( 1 + pvecback[pba->index_bg_a]*pvecback[pba->index_bg_a]*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm] ) / pppaw->k;
+        *timescale = MIN(tau_ncdm,*timescale);
+      }
+    }
 
     if (ppw->approx[ppw->index_ap_tca] == (int)tca_off) {
 
@@ -5969,20 +6009,6 @@ int perturb_timescale(
 
       }
     }
-
-    /*SIWDM
-     * If I have a SIWDM species that is not on TCA, its relaxation time is also a timescale
-     */
-
-    if ( (pba->has_ncdm == _TRUE_) && (pba->has_si_ncdm==_TRUE_) && (pba->sum_early_coupled > 0) ){
-      tau_rel=*timescale;
-      for (int i=0; i<pba->N_ncdm; i++){
-        if (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+i] == (int) ncdmtca_off){
-          tau_rel = MIN(pvecback[pba->index_bg_taurel_si_ncdm1 + i] / pvecback[pba->index_bg_a], tau_rel);
-        }
-      }
-      *timescale=MIN(tau_rel,*timescale);
-    } 
   }
 
 
@@ -6307,6 +6333,7 @@ int perturb_total_stress_energy(
 
   /* Extra: SI*/
   double T_over_m,factor_prime;
+  int n_si_ncdm;
 
   /** - wavenumber and scale factor related quantities */
 
@@ -6449,11 +6476,13 @@ int perturb_total_stress_energy(
 
       for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
 
-        //Different cases depending on has_si_ncdm: if there is no si_ncdm then approximation indices for tca are not defined
-        if(pba->has_si_ncdm == _TRUE_){
+        //Different cases depending on if the species is SI: if it is not then approximation indices for tca are not defined
+        if(pba->ncdm_si_type[n_ncdm] >= 1){
+
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
 
           if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on 
-            && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_off) ) {
+            && (ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_off) ) {
             // The perturbations are evolved integrated:
             //for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
             rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
@@ -6479,7 +6508,7 @@ int perturb_total_stress_energy(
 
             //printf("Adding %e to to rho_delta_ncdm, %e to rho_plus_p_theta_ncdm and %e to rho_plus_p_shear_ncdm \n", rho_delta_ncdm, rho_plus_p_theta_ncdm, rho_plus_p_shear_ncdm);
           }
-          else if ( ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int)ncdmtca_on) {
+          else if ( ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int)ncdmtca_on) {
             //We must integrate to find the perturbations but only for l<2 (shear is not tracked!)
             rho_delta_ncdm = 0.0;
             rho_plus_p_theta_ncdm = 0.0;
@@ -8052,7 +8081,7 @@ int get_ncdmtca_psi_high_l( struct background * pba ,
 
   /** SI: ncdm_tca and tridiagonal matrix variables */
 
-  int index_tridiag,l;
+  int index_tridiag,l, n_si_ncdm;
   double metric_shear;
   double a,q,q2,epsilon,dlnf0_dlnq,qk_div_epsilon,T_over_m;
   double tau_rel;
@@ -8063,7 +8092,8 @@ int get_ncdmtca_psi_high_l( struct background * pba ,
   q2 = q*q;
   epsilon = sqrt(q2+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
   qk_div_epsilon = k*q/epsilon;
-  tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_ncdm] / a;
+  n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+  tau_rel = ppw->pvecback[pba->index_bg_taurel_si_ncdm1+n_si_ncdm] / a;
 
   T_over_m = ( pba->T_cmb * pba->T_ncdm[n_ncdm] / a) * (_k_B_) /
              ( pba->m_ncdm_in_eV[n_ncdm] *_eV_);
@@ -8282,7 +8312,7 @@ int perturb_derivs(double tau,
 
   /*SIWDM Test variables*/
   double q_max_target,q_min_target,k_max_target,k_min_target;
-  int l_target;
+  int l_target, n_si_ncdm;
   double guess_mb,guess_y_1,guess_y_2;
 
   /** - rename the fields of the input structure (just to avoid heavy notations) */
@@ -8872,11 +8902,13 @@ int perturb_derivs(double tau,
         }
         */
 
-        //Different cases if has_si_ncdm is on or not, as perturbation indices for ncdm_tca are not defined if there is no si_ncdm
-        if (pba->has_si_ncdm == _TRUE_){          
+        //Different cases if the species is SI or not, as perturbation indices for ncdm_tca are not defined if it is not si_ncdm
+        if (pba->ncdm_si_type[n_ncdm] >= 1){
+
+        n_si_ncdm = pba->ncdm_si_index[n_ncdm];    
 
           if( (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on) 
-            && ( ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int) ncdmtca_off ) ) {
+            && ( ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int) ncdmtca_off ) ) {
 
             /** - -----> define intermediate quantitites */
 
@@ -8886,8 +8918,8 @@ int perturb_derivs(double tau,
             w_ncdm = p_ncdm_bg/rho_ncdm_bg; /* equation of state parameter */
             ca2_ncdm = w_ncdm/3.0/(1.0+w_ncdm)*(5.0-pseudo_p_ncdm/p_ncdm_bg); /* adiabatic sound speed */
 
-            if ( (pba->has_si_ncdm == _TRUE_) && (pba->is_early_coupled[n_ncdm] == _TRUE_) ){
-              tau_rel = pvecback[pba->index_bg_taurel_si_ncdm1 + n_ncdm] / a ;
+            if ( (pba->ncdm_si_type[n_ncdm] >= 1) && (pba->is_early_coupled[n_ncdm] == _TRUE_) ){
+              tau_rel = pvecback[pba->index_bg_taurel_si_ncdm1 + n_si_ncdm] / a ;
             }
 
             /* c_eff is (delta p / delta rho) in the gauge under
@@ -8945,7 +8977,7 @@ int perturb_derivs(double tau,
             }
 
             // Term accounting for self-interactions in the fluid approximation
-            if ( (pba->has_si_ncdm == _TRUE_) && (pba->is_early_coupled[n_ncdm] == _TRUE_) ){
+            if ( (pba->ncdm_si_type[n_ncdm] >= 1) && (pba->is_early_coupled[n_ncdm] == _TRUE_) ){
               dy[idx+2] -= 1./tau_rel*y[idx+2];
             }
 
@@ -8954,7 +8986,7 @@ int perturb_derivs(double tau,
             idx += pv->l_max_ncdm[n_ncdm]+1;
           }
 
-          else if ( ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_ncdm] == (int) ncdmtca_on ) {
+          else if ( ppw->approx[ppw->index_ap_ncdmtca_ncdm1+n_si_ncdm] == (int) ncdmtca_on ) {
 
             //in ncdm_tca: calculate the time derivatives of l = 0, 1, estimate the higher moments via get_ncdmtca_psi_high_l
             for (index_q=0; index_q < pv->q_size_ncdm[n_ncdm]; index_q++) {
@@ -9032,7 +9064,8 @@ int perturb_derivs(double tau,
               q = pba->q_ncdm[n_ncdm][index_q];
               epsilon = sqrt(q*q+a2*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
               qk_div_epsilon = k*q/epsilon;
-              tau_rel = pvecback[pba->index_bg_taurel_si_ncdm1 + n_ncdm] / a;
+              n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+              tau_rel = pvecback[pba->index_bg_taurel_si_ncdm1 + n_si_ncdm] / a;
 
               /** -------> NR SIWDM calculations */
 

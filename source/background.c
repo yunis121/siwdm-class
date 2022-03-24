@@ -455,15 +455,19 @@ int background_functions(
   /* SI */
   /* Calculate relaxation time using background_si_ncdm_reltime routine, store in pvecback*/
 
-  if (pba->has_si_ncdm == _TRUE_){
+  for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
 
-    for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
+    int n_si_ncdm = 0;
+
+    if (pba->ncdm_si_type[n_ncdm] >= 1){
 
       class_call(background_si_ncdm_reltime(pba, &reltime, 1./a_rel-1., n_ncdm)
         ,pba->error_message
         ,pba->error_message);
 
-      pvecback[pba->index_bg_taurel_si_ncdm1 + n_ncdm ] = reltime;
+      n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
+      pvecback[pba->index_bg_taurel_si_ncdm1 + n_si_ncdm ] = reltime;
 
       //printf("taurel_index = %d, reltime=%e \n", pba->index_bg_taurel_si_ncdm1, reltime );
 
@@ -491,10 +495,11 @@ int background_functions(
     if (pba->has_si_ncdm == _TRUE_){
       if (pba->background_verbose>5){
         for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
+          n_si_ncdm = pba->ncdm_si_index[n_ncdm];
           printf("background_functions called with long_info. Printing taurel info: T = %e, z = %e, taurel = %e\n",
             ( pba->T_cmb * pba->T_ncdm[n_ncdm] * (1./a_rel) ),
             1./a_rel-1.,
-            pvecback[pba->index_bg_taurel_si_ncdm1] );
+            pvecback[pba->index_bg_taurel_si_ncdm1+n_si_ncdm] );
         }
       }
     }
@@ -1866,16 +1871,16 @@ int background_si_ncdm_init(
 
   /** check if correctly allocated! */
 
-  pba->is_early_coupled[pba->N_ncdm-1] = 1;
+  /*pba->is_early_coupled[pba->N_ncdm-1] = 1;
   if(pba->background_si_verbose>2){
     printf("Checking if correctly allocated: pba->is_early_coupled[pba->N_ncdm] = %d\n", pba->is_early_coupled[pba->N_ncdm-1] );
-  }
+  }*/
 
   /* Note from future Rafael: Don't know what this is. Sounds ominous. Afraid to erase it
   FOR NOW, NOT NECCESARY. JUST TESTING. NECESSARY IMPLEMENTATION OF EARLY TCA IN background_initial_conditions(...) */
   /* FOR MODE 1 -> TABLE OF TAU_REL (T_CMB) , INITIALIZE TAU_REL TABLE */
 
-  int k,row,status,filenum;
+  int k,row,status,n_si_ncdm;
   double tmp1,tmp2;
   double T_test;
   double * taurel_test;
@@ -1883,27 +1888,27 @@ int background_si_ncdm_init(
   int * last_index;
   FILE *taufile;
 
-  class_alloc(pba->si_ncdm_table_T,sizeof(double*)*pba->N_ncdm,pba->error_message);
-  class_alloc(pba->si_ncdm_table_taurel,sizeof(double*)*pba->N_ncdm,pba->error_message);
-  class_alloc(pba->si_ncdm_table_d2taurel,sizeof(double*)*pba->N_ncdm,pba->error_message);
-  class_alloc(pba->si_ncdm_table_size,sizeof(double)*pba->N_ncdm,pba->error_message);
+  class_alloc(pba->si_ncdm_table_T,sizeof(double*)*pba->N_si_ncdm,pba->error_message);
+  class_alloc(pba->si_ncdm_table_taurel,sizeof(double*)*pba->N_si_ncdm,pba->error_message);
+  class_alloc(pba->si_ncdm_table_d2taurel,sizeof(double*)*pba->N_si_ncdm,pba->error_message);
+  class_alloc(pba->si_ncdm_table_size,sizeof(double)*pba->N_si_ncdm,pba->error_message);
 
-  for(k=0, filenum=0; k<pba->N_ncdm; k++){
+  for(k=0, n_si_ncdm=0; k<pba->N_ncdm; k++){
 
     /* CASE: MODE 1. DO WE HAVE A TABLE TO INTERPOLATE? */
     if (pba->ncdm_si_type[k]==1){
 
       if(pba->background_si_verbose>1){
-        printf("NCDM species found of interaction type 1.\n");
+        printf("NCDM species %d found of interaction type 1.\n", k+1);
       }
 
       //try to open file
-      taufile = fopen(pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_,"r");
+      taufile = fopen(pba->ncdm_si_tau_files+n_si_ncdm*_ARGUMENT_LENGTH_MAX_,"r");
       class_test(taufile == NULL,pba->error_message,
-                 "Could not open file %s for ncdm species %d!",pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_, k);
+                 "Could not open file %s for ncdm species %d!",pba->ncdm_si_tau_files+n_si_ncdm*_ARGUMENT_LENGTH_MAX_, k);
 
       if(pba->background_si_verbose>1){
-        printf("Successfuly opened file %s\n", pba->ncdm_si_tau_files+filenum*_ARGUMENT_LENGTH_MAX_);
+        printf("Successfuly opened file %s\n", pba->ncdm_si_tau_files+n_si_ncdm*_ARGUMENT_LENGTH_MAX_);
       }
 
       // Find size of table:
@@ -1918,9 +1923,9 @@ int background_si_ncdm_init(
       }
 
       /*Allocate room for interpolation table: */
-      class_alloc(pba->si_ncdm_table_T[k],sizeof(double)*tablesize,pba->error_message);
-      class_alloc(pba->si_ncdm_table_taurel[k],sizeof(double)*tablesize,pba->error_message);
-      class_alloc(pba->si_ncdm_table_d2taurel[k],sizeof(double)*tablesize,pba->error_message);
+      class_alloc(pba->si_ncdm_table_T[n_si_ncdm],sizeof(double)*tablesize,pba->error_message);
+      class_alloc(pba->si_ncdm_table_taurel[n_si_ncdm],sizeof(double)*tablesize,pba->error_message);
+      class_alloc(pba->si_ncdm_table_d2taurel[n_si_ncdm],sizeof(double)*tablesize,pba->error_message);
 
       if(pba->background_si_verbose>1){
         printf("Memory allocated. Writing...\n");
@@ -1929,15 +1934,15 @@ int background_si_ncdm_init(
       //Store Table
       for (row=0; row<tablesize; row++){
         status = fscanf(taufile,"%lf %lf",
-                        &(pba->si_ncdm_table_T[k][row]),&(pba->si_ncdm_table_taurel[k][row]));
+                        &(pba->si_ncdm_table_T[n_si_ncdm][row]),&(pba->si_ncdm_table_taurel[n_si_ncdm][row]));
         if(pba->background_si_verbose>3){
-          printf("(T,Tau_rel) = (%g,%g)\n",pba->si_ncdm_table_T[k][row],pba->si_ncdm_table_taurel[k][row]);
+          printf("(T,Tau_rel) = (%g,%g)\n",pba->si_ncdm_table_T[n_si_ncdm][row],pba->si_ncdm_table_taurel[n_si_ncdm][row]);
         }
       }
       fclose(taufile);
 
       if(pba->background_si_verbose>1){
-        printf("Stored Table. T[last] = %g, Tau_rel[last] = %g \n", pba->si_ncdm_table_T[k][tablesize-1], pba->si_ncdm_table_taurel[k][tablesize-1]);
+        printf("Stored Table. T[last] = %g, Tau_rel[last] = %g \n", pba->si_ncdm_table_T[n_si_ncdm][tablesize-1], pba->si_ncdm_table_taurel[n_si_ncdm][tablesize-1]);
       }
 
       //printf("Memory allocated. Writing...\n");
@@ -1952,21 +1957,21 @@ int background_si_ncdm_init(
 
       // Change everything to log()
       for (row=0; row<tablesize; row++){
-        temp = pba->si_ncdm_table_T[k][row];
-        pba->si_ncdm_table_T[k][row] = log(temp);
-        temp = pba->si_ncdm_table_taurel[k][row];
-        pba->si_ncdm_table_taurel[k][row] = log(temp);
+        temp = pba->si_ncdm_table_T[n_si_ncdm][row];
+        pba->si_ncdm_table_T[n_si_ncdm][row] = log(temp);
+        temp = pba->si_ncdm_table_taurel[n_si_ncdm][row];
+        pba->si_ncdm_table_taurel[n_si_ncdm][row] = log(temp);
         if(pba->background_si_verbose>3){
-          printf("(log T,log Tau_rel) = (%g,%g)\n",pba->si_ncdm_table_T[k][row],pba->si_ncdm_table_taurel[k][row]);
+          printf("(log T,log Tau_rel) = (%g,%g)\n",pba->si_ncdm_table_T[n_si_ncdm][row],pba->si_ncdm_table_taurel[n_si_ncdm][row]);
         }
       }
 
       /* Call spline interpolation: */
-      class_call(array_spline_table_lines(pba->si_ncdm_table_T[k],
+      class_call(array_spline_table_lines(pba->si_ncdm_table_T[n_si_ncdm],
                                           tablesize,
-                                          pba->si_ncdm_table_taurel[k],
+                                          pba->si_ncdm_table_taurel[n_si_ncdm],
                                           1,
-                                          pba->si_ncdm_table_d2taurel[k],
+                                          pba->si_ncdm_table_d2taurel[n_si_ncdm],
                                           _SPLINE_NATURAL_,
                                           pba->error_message),
                  pba->error_message,
@@ -1984,12 +1989,12 @@ int background_si_ncdm_init(
 
       for(int i=0; i<tablesize; i++){
         if(pba->background_si_verbose>4){
-          printf("(log T, log taurel, log d2taurel) = (%e,%e,%e)\n", pba->si_ncdm_table_T[k][i], pba->si_ncdm_table_taurel[k][i], pba->si_ncdm_table_d2taurel[k][i] );
+          printf("(log T, log taurel, log d2taurel) = (%e,%e,%e)\n", pba->si_ncdm_table_T[n_si_ncdm][i], pba->si_ncdm_table_taurel[n_si_ncdm][i], pba->si_ncdm_table_d2taurel[n_si_ncdm][i] );
         }
       }
 
       //Store size of table
-      pba->si_ncdm_table_size[k] = tablesize;
+      pba->si_ncdm_table_size[n_si_ncdm] = tablesize;
 
       /* In case of any problems, we test the interpolation here.
        * Simply print out to console table values vs interpolation at sampled T
@@ -2010,13 +2015,13 @@ int background_si_ncdm_init(
 
       for (int i=1; i<(tablesize-1); i++){
 
-        T_test = ( pba->si_ncdm_table_T[k][i-1] + pba->si_ncdm_table_T[k][i+1] )/2. ;
+        T_test = ( pba->si_ncdm_table_T[n_si_ncdm][i-1] + pba->si_ncdm_table_T[n_si_ncdm][i+1] )/2. ;
 
         class_call(array_interpolate_spline(
-          pba->si_ncdm_table_T[k],
-          pba->si_ncdm_table_size[k],
-          pba->si_ncdm_table_taurel[k],
-          pba->si_ncdm_table_d2taurel[k],
+          pba->si_ncdm_table_T[n_si_ncdm],
+          pba->si_ncdm_table_size[n_si_ncdm],
+          pba->si_ncdm_table_taurel[n_si_ncdm],
+          pba->si_ncdm_table_d2taurel[n_si_ncdm],
           1,
           T_test,
           last_index,
@@ -2031,7 +2036,7 @@ int background_si_ncdm_init(
         }
       }
 
-      filenum++;
+      n_si_ncdm++;
     }
 
     else{
@@ -2052,7 +2057,7 @@ int background_si_ncdm_init(
  * @param pba Input: precision structure
  * @param reltime Output: relaxation time
  * @param z Input: Redshift
- * @param n_ncdm Input: ncdm species number 
+ * @param n_ncdm Input: si ncdm species number 
  */
 int background_si_ncdm_reltime(
                             struct background *pba,
@@ -2062,30 +2067,33 @@ int background_si_ncdm_reltime(
 
   //double T_at_z, T_last, reltime_last, dT_last, dreltime_last;
   double T_at_z, logT_last, logReltime_last, d_logT, d_logReltime, log_slope;
-  int last_index;
+  int last_index, n_si_ncdm;
   double temp_reltime;
 
-  T_at_z = pba->T_cmb * pba->T_ncdm[n_ncdm] * (1+z);
+  T_at_z = pba->T_cmb * pba->T_ncdm[n_si_ncdm] * (1+z);
   //printf("%e %e\n",z, T_at_z );
-  last_index = pba->si_ncdm_table_size[n_ncdm] - 1;
+  last_index = pba->si_ncdm_table_size[n_si_ncdm] - 1;
 
   //If the species is SIWDM of mode 1:
   if (pba->ncdm_si_type[n_ncdm]==1){
 
+    //(Important! Different from n_ncdm! Mapping between the two is stored in pba->ncdm_si_index) 
+    n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
     //Handle T > T_max: tau_rel set to the first T value of the table (ie the highest temperature)
-    if(T_at_z > exp( pba->si_ncdm_table_T[n_ncdm][0]) ) {
+    if(T_at_z > exp( pba->si_ncdm_table_T[n_si_ncdm][0]) ) {
       //Handle T > T_max (first) case :
-      //printf("T>T_max. T_at_z = %e, T[0]= %e\n", T_at_z, pba->si_ncdm_table_T[n_ncdm][0]);
-      *reltime = exp( pba->si_ncdm_table_taurel[n_ncdm][0] );
+      //printf("T>T_max. T_at_z = %e, T[0]= %e\n", T_at_z, pba->si_ncdm_table_T[n_si_ncdm][0]);
+      *reltime = exp( pba->si_ncdm_table_taurel[n_si_ncdm][0] );
     }
-    else if(T_at_z < exp( pba->si_ncdm_table_T[n_ncdm][last_index]) ) {
+    else if(T_at_z < exp( pba->si_ncdm_table_T[n_si_ncdm][last_index]) ) {
       //printf("T>T_max. last_index= %d, T_at_z = %e, T[last]= %e\n", last_index, T_at_z, pba->si_ncdm_table_T[n_ncdm][last_index]);
       //Handle T < Tmin case : Fit power law to last table values, get value from fit
 
-      logT_last = pba->si_ncdm_table_T[n_ncdm][last_index] ;
-      logReltime_last =  pba->si_ncdm_table_taurel[n_ncdm][last_index] ;
-      d_logT= logT_last - pba->si_ncdm_table_T[n_ncdm][last_index-1] ;
-      d_logReltime = logReltime_last - pba->si_ncdm_table_taurel[n_ncdm][last_index-1] ;
+      logT_last = pba->si_ncdm_table_T[n_si_ncdm][last_index] ;
+      logReltime_last =  pba->si_ncdm_table_taurel[n_si_ncdm][last_index] ;
+      d_logT= logT_last - pba->si_ncdm_table_T[n_si_ncdm][last_index-1] ;
+      d_logReltime = logReltime_last - pba->si_ncdm_table_taurel[n_si_ncdm][last_index-1] ;
 
       log_slope = d_logReltime / d_logT;
 
@@ -2096,17 +2104,17 @@ int background_si_ncdm_reltime(
         *reltime = temp_reltime;  //Power law approximation
       }
       else{
-        *reltime = exp( pba->si_ncdm_table_taurel[n_ncdm][last_index] );
+        *reltime = exp( pba->si_ncdm_table_taurel[n_si_ncdm][last_index] );
       }
     }
     else{
       //Otherwise, do the regular interpolation
       //printf("Interpolating...\n");
       class_call(array_interpolate_spline(
-        pba->si_ncdm_table_T[n_ncdm],
-        pba->si_ncdm_table_size[n_ncdm],
-        pba->si_ncdm_table_taurel[n_ncdm],
-        pba->si_ncdm_table_d2taurel[n_ncdm],
+        pba->si_ncdm_table_T[n_si_ncdm],
+        pba->si_ncdm_table_size[n_si_ncdm],
+        pba->si_ncdm_table_taurel[n_si_ncdm],
+        pba->si_ncdm_table_d2taurel[n_si_ncdm],
         1,
         log(T_at_z),
         &last_index,
@@ -2116,7 +2124,7 @@ int background_si_ncdm_reltime(
       pba->error_message,     pba->error_message);
 
       //printf("T[0] = %e, taurel[0] = %e, log(T_at_z)= %e \n", 
-      //  exp(pba->si_ncdm_table_T[n_ncdm][0]), exp(pba->si_ncdm_table_taurel[n_ncdm][0]), log(T_at_z));
+      //  exp(pba->si_ncdm_table_T[n_si_ncdm][0]), exp(pba->si_ncdm_table_taurel[n_si_ncdm][0]), log(T_at_z));
 
       //printf("T_at_z=%e, temp_reltime=%e \n", T_at_z, temp_reltime);
 
@@ -3048,8 +3056,7 @@ int background_initial_conditions(
     printf("Initial H= %e \n", pvecback[pba->index_bg_H] );
   }
 
-  double * initial_reltime;
-  class_alloc(initial_reltime, sizeof(double), pba->error_message);
+  double initial_reltime;
 
   //printf("Allocated initial_reltime\n");
 
@@ -3061,18 +3068,20 @@ int background_initial_conditions(
 
     for (int n_ncdm = 0; n_ncdm<pba->N_ncdm; n_ncdm++) {
 
-      if(pba->ncdm_si_type[n_ncdm] != 0){
+      pba->is_early_coupled[n_ncdm] = _FALSE_;
+
+      if(pba->ncdm_si_type[n_ncdm] >= 1){
 
         class_call(background_si_ncdm_reltime(pba,
-          initial_reltime,
+          &initial_reltime,
           pba->a_today/a - 1.0,
           n_ncdm),
         pba->error_message,
         pba->error_message);
 
-        if(pba->background_si_verbose>2)printf("Initial Relaxation time = %e \n", *initial_reltime);
+        if(pba->background_si_verbose>2)printf("Initial Relaxation time = %e \n", initial_reltime);
 
-        if (*initial_reltime <= 1./(pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a])){
+        if (initial_reltime <= 1./(pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a])){
           if(pba->background_si_verbose>1){
             printf("Self Interacting NCDM species %d coupled at earliest computed time. Using equilibrium DF in background calculations.\n", n_ncdm+1);
           }
@@ -3141,37 +3150,45 @@ int background_initial_conditions(
 
     for (int n_ncdm=0; n_ncdm< pba->N_ncdm; n_ncdm++ ){
 
-      if(pba->background_si_verbose>2)printf("Checking if the ncdm species %d has coupled SI in the NR regime...\n", n_ncdm);
+      pba->is_NR_SI_decoupled[n_ncdm] = _FALSE_;
 
-      // a at T=m
-      double a_nonrel = ( pba->T_cmb * pba->a_today * _k_B_ ) / (pba->m_ncdm_in_eV[n_ncdm] * _eV_);
+      if (pba->ncdm_si_type[n_ncdm] != 0){
 
-      double * pvecback_integration_nonrel;
-      double * pvecback_nonrel;
-      class_alloc(pvecback_nonrel,pba->bg_size*sizeof(double),pba->error_message);
-      class_alloc(pvecback_integration_nonrel,pba->bi_size*sizeof(double),pba->error_message);
+        if(pba->background_si_verbose>2)printf("Checking if the ncdm species %d has coupled SI in the NR regime...\n", n_ncdm + 1);
 
-      class_test(pba->has_fld || pba->has_dcdm || pba->has_scf || pba->has_dr, pba->error_message, 
-        "Self Interacting NCDM currently incompatible with: UR, DCDM, SCF or DR.");
+        // a at T=m
+        double a_nonrel = ( pba->T_cmb * pba->a_today * _k_B_ ) / (pba->m_ncdm_in_eV[n_ncdm] * _eV_);
 
-      // We quickly integrate the background until T=m
-      pvecback_integration_nonrel[pba->index_bi_a] = a_nonrel;
-      class_call(background_functions(pba, pvecback_integration_nonrel, pba->long_info, pvecback_nonrel),
-        pba->error_message,
-        pba->error_message);
+        double * pvecback_integration_nonrel;
+        double * pvecback_nonrel;
+        class_alloc(pvecback_nonrel,pba->bg_size*sizeof(double),pba->error_message);
+        class_alloc(pvecback_integration_nonrel,pba->bi_size*sizeof(double),pba->error_message);
 
-      printf("H_nonrel = %e, a_nonrel = %e, tau_nonrel=%e \n", pvecback_nonrel[pba->index_bg_H], pvecback_integration_nonrel[pba->index_bi_a], pvecback_nonrel[pba->index_bg_taurel_si_ncdm1+n_ncdm]);
+        class_test(pba->has_fld || pba->has_dcdm || pba->has_scf || pba->has_dr, pba->error_message, 
+          "Self Interacting NCDM currently incompatible with: UR, DCDM, SCF or DR.");
 
-      // Check if it is self-coupled
-      if (pvecback_nonrel[pba->index_bg_taurel_si_ncdm1+n_ncdm]<=
-        (1./(pvecback_nonrel[pba->index_bg_H]))){
-        pba->is_NR_SI_decoupled[n_ncdm] = _TRUE_;
+        // We quickly integrate the background until T=m
+        pvecback_integration_nonrel[pba->index_bi_a] = a_nonrel;
+        class_call(background_functions(pba, pvecback_integration_nonrel, pba->long_info, pvecback_nonrel),
+          pba->error_message,
+          pba->error_message);
+
+        int n_si_ncdm = pba->ncdm_si_index[n_ncdm];
+
+        printf("H_nonrel = %e, a_nonrel = %e, tau_nonrel=%e \n", pvecback_nonrel[pba->index_bg_H], pvecback_integration_nonrel[pba->index_bi_a], pvecback_nonrel[pba->index_bg_taurel_si_ncdm1+n_si_ncdm]);
+
+        // Check if it is self-coupled
+        if (pvecback_nonrel[pba->index_bg_taurel_si_ncdm1+n_si_ncdm]<=
+          (1./(pvecback_nonrel[pba->index_bg_H]))){
+          pba->is_NR_SI_decoupled[n_ncdm] = _TRUE_;
+        }
+        else{ 
+          pba->is_NR_SI_decoupled[n_ncdm] = _FALSE_;
+        }
+
+        if(pba->background_si_verbose>2)printf("is_NR_SI_decoupled[n_ncdm] = %d\n", pba->is_NR_SI_decoupled[n_ncdm]);
+
       }
-      else{ 
-        pba->is_NR_SI_decoupled[n_ncdm] = _FALSE_;
-      }
-
-      if(pba->background_si_verbose>2)printf("is_NR_SI_decoupled[n_ncdm] = %d\n", pba->is_NR_SI_decoupled[n_ncdm]);
 
     }
 
@@ -3181,8 +3198,8 @@ int background_initial_conditions(
       pba->sum_early_coupled=0;
       pba->sum_NR_SI_decoupled=0;
       for (n_ncdm=0;n_ncdm<pba->N_ncdm;n_ncdm++) {
-        if(pba->is_early_coupled[n_ncdm] ==_TRUE_) pba->sum_early_coupled++;
-        if(pba->is_NR_SI_decoupled[n_ncdm] ==_TRUE_) pba->sum_NR_SI_decoupled++;
+        if(pba->is_early_coupled[n_ncdm] ==_TRUE_ && pba->ncdm_si_type >= 0 ) pba->sum_early_coupled++;
+        if(pba->is_NR_SI_decoupled[n_ncdm] ==_TRUE_ && pba->ncdm_si_type >= 0) pba->sum_NR_SI_decoupled++;
       }
     }
 
@@ -3209,9 +3226,9 @@ int background_initial_conditions(
 
       for (int n=0; n < pba->N_ncdm; n++){
 
-        if (pba->is_early_coupled[n]==_TRUE_){
+        if (pba->ncdm_si_type[n] >= 0 && pba->is_early_coupled[n]== _TRUE_ && pba->got_files[n] == _TRUE_){
 
-          printf("Species %d is early coupled. Recalculating factors for ncdm species %d \n", n, n );
+          printf("Species %d is early coupled and not set to thermal values. Recalculating factors for ncdm species %d \n", n+1, n+1 );
 
           pba->Omega0_ncdm_tot -= pba->Omega0_ncdm[n];
           if(pba->background_si_verbose>2)printf("Removing %g from total Omega..\n",pba->Omega0_ncdm[n]);
