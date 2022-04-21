@@ -1323,6 +1323,10 @@ int background_ncdm_NR_test_function(
   double d = 120.0/(7.0*pow(_PI_,4));
   double e = 2.0/(45.0*_zeta5_);
 
+  //double c = 0.;
+  //double d = 0.;
+  //double e = 0.;
+
   double f = 8./3.*pow(_PI_,0.5) * 3.0;
   double g = (4./pow(_PI_,0.5)) * 3.0;
  
@@ -1707,9 +1711,10 @@ int background_ncdm_momenta(
        *non relativistic (precalcualted) and intermediate (calcualted on the fly) regimes
        */
       if (qsize==pba->q_size_ncdm[n_ncdm]){
+        //fprintf(stderr, "qsize = %d, T_over_m = %e, pba->ncdm_NR_SI_DF_factor[n_ncdm][index_q] = %e \n", qsize, T_over_m, pba->ncdm_NR_SI_DF_factor[n_ncdm][index_q]);
         background_ncdm_NR_SI_switching(
           T_over_m,
-          background_get_NR_SI_factor_prime(pba,n_ncdm,index_q,z,&factor_prime),
+          class_call(background_get_NR_SI_factor_prime(pba,n_ncdm,index_q,z,&factor_prime), pba->error_message, pba->error_message),
           pba->ncdm_NR_SI_DF_factor[n_ncdm][index_q],
           1.0,
           &factor_prime);
@@ -1717,7 +1722,7 @@ int background_ncdm_momenta(
       else if (qsize==pba->q_size_ncdm_bg[n_ncdm]){
         background_ncdm_NR_SI_switching(
           T_over_m,
-          background_get_NR_SI_factor_prime_bg(pba,n_ncdm,index_q,z,&factor_prime),
+          class_call(background_get_NR_SI_factor_prime_bg(pba,n_ncdm,index_q,z,&factor_prime), pba->error_message, pba->error_message),
           pba->ncdm_NR_SI_DF_factor_bg[n_ncdm][index_q],
           1.0,
           &factor_prime); 
@@ -2278,6 +2283,9 @@ int background_get_NR_SI_factor_prime(
       *factor_prime=1.0;
     }
   }
+
+  //fprintf(stderr, "background_get_NR_SI_factor_prime called for ncdm species %d, momenta %e at t/m = %e. It will output a value of %e, compared to a rel value of %e. \n",
+  //n_ncdm, q, T_over_m, *factor_prime, 1.0);
   
   //*factor_prime = 1.0;
   return _SUCCESS_;
@@ -2342,6 +2350,9 @@ int background_get_NR_SI_factor_prime_bg(
     }
   }
 
+  //fprintf(stderr, "background_get_NR_SI_factor_prime_bg called for ncdm species %d, momenta %e at T/m = %e. It will output a value of %e, compared to a rel value of %e. \n",
+  //n_ncdm, q, T_over_m, *factor_prime, 1.0);
+
   return _SUCCESS_;
 
 }
@@ -2375,61 +2386,69 @@ int background_get_NR_SI_dlnf0_dlnq(
                     ( pba->m_ncdm_in_eV[n_ncdm] *_eV_);
   double q = pba->q_ncdm[n_ncdm][index_q];
 
-  // If in the deep relativistic regime, same as before
-  if (T_over_m > _NCDM_LARGE_T_OVER_M_){
-    //*dlnf0_dlnq = -q;
-    *dlnf0_dlnq= - q/(1.0+exp(-q));
+  //Only do this if the species is si, actually decouples NR and is not ignored (sanity checks)
+
+  if (pba->ncdm_si_type[n_ncdm] >= 1 && pba->is_NR_SI_decoupled[n_ncdm] == _TRUE_ && pba->ncdm_NR_SI_decoupling_method != (int) NR_SI_ignore){
+
+    // If in the deep relativistic regime, same as before
+    if (T_over_m > _NCDM_LARGE_T_OVER_M_){
+      //*dlnf0_dlnq = -q;
+      *dlnf0_dlnq= - q/(1.0+exp(-q));
+    }
+    else{
+      // Otherwise, calculate
+      if ((pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK)||(pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy)){
+        //double a = 1 + 3.534 / 2. * erfc( log( T_over_m ) );
+        //double b = 1 + 0.0748 * 0.5 * erfc( log( T_over_m ) );
+        //double c = 1 + 0.5 * erfc( log( T_over_m ) );
+
+        double nr_df;
+        if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK){ nr_df = 4.534 * exp(-1.0748*pow(q,2)); }
+        if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy){ nr_df = 2.199 * exp(-1.5072*pow(q,2)); }
+        //printf("nrdf=%e\n",nr_df);
+
+        double rel_df = 2.0/pow(2*_PI_,3)*(1./(exp(q)+1.));
+        //printf("rel_df=%e\n",rel_df);
+
+        double f0 = 0.5*erfc( log(T_over_m) )*nr_df + (1.0-0.5*erfc( log(T_over_m) ) ) *rel_df;
+        //printf("f0=%e\n",f0);
+
+        //First calculate df0/dq
+        double df0dq = - ( 0.5*erfc( log(T_over_m) )*nr_df*(2.1496*q) + (1.0 - 0.5*erfc( log(T_over_m) ) )*rel_df*(1.0/(1.0+exp(-q))) );
+        if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK){ 
+          df0dq = - ( 0.5*erfc( log(T_over_m) )*nr_df*(2.1496*q) + (1.0 - 0.5*erfc( log(T_over_m) ) )*rel_df*(1.0/(1.0+exp(-q))) );
+        }
+        if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy){ 
+          df0dq = - ( 0.5*erfc( log(T_over_m) )*nr_df*(2*1.5072*q) + (1.0 - 0.5*erfc( log(T_over_m) ) )*rel_df*(1.0/(1.0+exp(-q))) );
+        }
+        //printf("df0dq=%e\n",df0dq);
+
+        //*dlnf0_dlnq = - b * c * pow(q,c);
+
+        //We may find that some of these values (especially f_0(q)) can be zero. If they are not, business as usual.
+        if ((q!=0.0)&&(f0!=0.0)&&(df0dq!=0.0)){
+          *dlnf0_dlnq = (q/f0) * df0dq;
+        }
+        else{
+          if (T_over_m<1.0){
+            //Assume that we are on the nr case...
+            if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK){ *dlnf0_dlnq= - 2.0 * 1.0748 * pow(q,2); }
+            if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy){ *dlnf0_dlnq= - 2.0 * 1.5072 * pow(q,2); }
+          }
+          else if (T_over_m>1.0){
+            //Assume that the distribution is FD
+            *dlnf0_dlnq = - q / (1 + exp(-q));
+          }
+        }
+      }
+    }
   }
   else{
-    // Otherwise, calculate
-    if ((pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK)||(pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy)){
-      //double a = 1 + 3.534 / 2. * erfc( log( T_over_m ) );
-      //double b = 1 + 0.0748 * 0.5 * erfc( log( T_over_m ) );
-      //double c = 1 + 0.5 * erfc( log( T_over_m ) );
-
-      double nr_df;
-      if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK){ nr_df = 4.534 * exp(-1.0748*pow(q,2)); }
-      if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy){ nr_df = 2.199 * exp(-1.5072*pow(q,2)); }
-      //printf("nrdf=%e\n",nr_df);
-
-      double rel_df = 2.0/pow(2*_PI_,3)*(1./(exp(q)+1.));
-      //printf("rel_df=%e\n",rel_df);
-
-      double f0 = 0.5*erfc( log(T_over_m) )*nr_df + (1.0-0.5*erfc( log(T_over_m) ) ) *rel_df;
-      //printf("f0=%e\n",f0);
-
-      //First calculate df0/dq
-      double df0dq = - ( 0.5*erfc( log(T_over_m) )*nr_df*(2.1496*q) + (1.0 - 0.5*erfc( log(T_over_m) ) )*rel_df*(1.0/(1.0+exp(-q))) );
-      if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK){ 
-        df0dq = - ( 0.5*erfc( log(T_over_m) )*nr_df*(2.1496*q) + (1.0 - 0.5*erfc( log(T_over_m) ) )*rel_df*(1.0/(1.0+exp(-q))) );
-      }
-      if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy){ 
-        df0dq = - ( 0.5*erfc( log(T_over_m) )*nr_df*(2*1.5072*q) + (1.0 - 0.5*erfc( log(T_over_m) ) )*rel_df*(1.0/(1.0+exp(-q))) );
-      }
-      //printf("df0dq=%e\n",df0dq);
-
-      //*dlnf0_dlnq = - b * c * pow(q,c);
-
-      //We may find that some of these values (especially f_0(q)) can be zero. If they are not, business as usual.
-      if ((q!=0.0)&&(f0!=0.0)&&(df0dq!=0.0)){
-        *dlnf0_dlnq = (q/f0) * df0dq;
-      }
-      else{
-        if (T_over_m<1.0){
-          //Assume that we are on the nr case...
-          if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_microK){ *dlnf0_dlnq= - 2.0 * 1.0748 * pow(q,2); }
-          if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_extrapolateDF_iEntropy){ *dlnf0_dlnq= - 2.0 * 1.5072 * pow(q,2); }
-        }
-        else if (T_over_m>1.0){
-          //Assume that the distribution is FD
-          *dlnf0_dlnq = - q / (1 + exp(-q));
-        }
-      }
-    }
-    if (pba->ncdm_NR_SI_decoupling_method == (int) NR_SI_ignore){
-      *dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
-    }
+    *dlnf0_dlnq = pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
   }
+
+  //fprintf(stderr, "background_get_NR_SI_dlnf0_dlnq called for ncdm species %d, momenta %e at T/m = %e. It will output a value of %e, compared to a rel value of %e. \n",
+  //  n_ncdm, q, T_over_m, *dlnf0_dlnq, pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
 
   return _SUCCESS_;
 }
@@ -2471,7 +2490,7 @@ int background_ncdm_NR_SI_DF_store_factors(
           pba->ncdm_NR_SI_DF_factor[n_ncdm][index_q]=1.0;
         }
         else{
-          background_get_NR_SI_factor_prime(pba, n_ncdm, index_q, 0.0, &(pba->ncdm_NR_SI_DF_factor[n_ncdm][index_q]));
+          class_call(background_get_NR_SI_factor_prime(pba, n_ncdm, index_q, 0.0, &(pba->ncdm_NR_SI_DF_factor[n_ncdm][index_q])), pba->error_message, pba->error_message);
         }
       }
       else{
@@ -2483,7 +2502,7 @@ int background_ncdm_NR_SI_DF_store_factors(
           pba->dlnf0_dlnq_ncdm_NR_SI[n_ncdm][index_q]=pba->dlnf0_dlnq_ncdm[n_ncdm][index_q];
         }
         else{
-          background_get_NR_SI_dlnf0_dlnq(pba, n_ncdm, index_q, 0.0, &(pba->dlnf0_dlnq_ncdm_NR_SI[n_ncdm][index_q]));
+          class_call(background_get_NR_SI_dlnf0_dlnq(pba, n_ncdm, index_q, 0.0, &(pba->dlnf0_dlnq_ncdm_NR_SI[n_ncdm][index_q])), pba->error_message, pba->error_message);
           if (pba->background_si_verbose>3){
             printf("Inside background_ncdm_NR_SI_DF_store_factors: dln... = %e\n", pba->dlnf0_dlnq_ncdm_NR_SI[n_ncdm][index_q]);
             printf("Just to compare: for the rel case %e\n", pba->dlnf0_dlnq_ncdm[n_ncdm][index_q]);
@@ -2505,7 +2524,7 @@ int background_ncdm_NR_SI_DF_store_factors(
           pba->ncdm_NR_SI_DF_factor_bg[n_ncdm][index_q_bg]=1.0;
         }
         else{
-          background_get_NR_SI_factor_prime_bg(pba, n_ncdm, index_q_bg, 0.0, &(pba->ncdm_NR_SI_DF_factor_bg[n_ncdm][index_q_bg])); 
+          class_call(background_get_NR_SI_factor_prime_bg(pba, n_ncdm, index_q_bg, 0.0, &(pba->ncdm_NR_SI_DF_factor_bg[n_ncdm][index_q_bg])), pba->error_message, pba->error_message); 
         }
       }
       else{
@@ -3152,7 +3171,7 @@ int background_initial_conditions(
 
       pba->is_NR_SI_decoupled[n_ncdm] = _FALSE_;
 
-      if (pba->ncdm_si_type[n_ncdm] != 0){
+      if (pba->ncdm_si_type[n_ncdm] >= 1){
 
         if(pba->background_si_verbose>2)printf("Checking if the ncdm species %d has coupled SI in the NR regime...\n", n_ncdm + 1);
 
