@@ -132,8 +132,9 @@ struct background
 
   /** ---------------------INTERACTIONS BLOCK------------------*/
 
-  int N_si_ncdm;  //Number of ncdm species
+  int N_si_ncdm;  //Number of ncdm SI species
   int * ncdm_si_type;  //Vector of types of ncdm interactions: 0=no interaction, 1=interaction given by tau_rel(T_gamma) table
+  int * ncdm_si_index;  //Vector that stores the proper indices for the ncdm si species (Eg. if ncdm_si_type is 0 1 0 3, this would be NULL 0 NULL 1)
 
   char * ncdm_si_tau_files;  //Container for si_ncdm file names
 
@@ -566,9 +567,9 @@ extern "C" {
   #define _NCDM_SMALL_T_OVER_M_ 1.0e-2
 
   #define background_ncdm_NR_SI_switching(T_over_m, routine, low_T_value, high_T_value, output_pointer){              \
-  if (T_over_m > _NCDM_LARGE_T_OVER_M_) *output_pointer = high_T_value;                                               \
-  if (T_over_m < _NCDM_SMALL_T_OVER_M_) *output_pointer = low_T_value;                                                \
-  else routine;                                                                                     \
+  if (T_over_m > _NCDM_LARGE_T_OVER_M_){ *output_pointer = high_T_value; }                                               \
+  else if (T_over_m < _NCDM_SMALL_T_OVER_M_){ *output_pointer = low_T_value; }                                                \
+  else { routine };                                                                                     \
 }
 
   /** SI */

@@ -900,6 +900,16 @@ int input_read_parameters(
     for (int n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++) pba->is_NR_SI_decoupled[n_ncdm]=0;
     pba->sum_NR_SI_decoupled=0;
 
+    /* Saving a few important variables for SIWDM before we run background_ncdm_init */
+
+    class_read_list_of_integers_or_default("ncdm_self_interaction_type", 
+                                            pba->ncdm_si_type, 0, N_ncdm);
+    class_read_int("background_si_verbose",
+                 pba->background_si_verbose);
+
+    /* What kind of method to use if non relativistic self interaction method is found */
+    class_read_int("ncdm_NR_SI_decoupling_method", pba->ncdm_NR_SI_decoupling_method)
+
     class_call(background_ncdm_init(ppr,pba),
                pba->error_message,
                errmsg);
@@ -965,21 +975,19 @@ int input_read_parameters(
     }
 
     /** -----------INTERACTIONS SAVE BLOCK -------------------------- */
-    // All parameters for SIWDM are read in this block
-
-    class_read_list_of_integers_or_default("ncdm_self_interaction_type", 
-                                            pba->ncdm_si_type, 0, N_ncdm);
-    class_read_int("background_si_verbose",
-                 pba->background_si_verbose);
-
-    /* What kind of method to use if non relativistic self interaction method is found */
-    class_read_int("ncdm_NR_SI_decoupling_method", pba->ncdm_NR_SI_decoupling_method)
+    // All parameters for SIWDM are processed in this block
 
     // Numer of (potentially relevant) SIWDM species
+    // Also, store vector that has the proper indices of si species
     pba->N_si_ncdm=0;
+    class_alloc(pba->ncdm_si_index, sizeof(int)*N_ncdm,errmsg);
     for(int i=0; i<N_ncdm; i++){
       //printf("%d\n", pba->ncdm_si_type[i]);
-      if (pba->ncdm_si_type[i] != 0) pba->N_si_ncdm += 1;
+      pba->ncdm_si_index[i] = 10000;
+      if (pba->ncdm_si_type[i] != 0){ 
+        pba->ncdm_si_index[i] = pba->N_si_ncdm;
+        pba->N_si_ncdm += 1;
+      }
     }
 
     // Relaxation time input files

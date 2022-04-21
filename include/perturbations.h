@@ -564,10 +564,15 @@ struct perturb_workspace
   //int index_ap_ncdmnrsd_ncdm1; /**< index for SIWDM relativistic f0 "approximation", for the first species  */
   
   /* internal variables for tridiagonal matrix solving */
-  double * tridiag_a;
-  double * tridiag_b;
-  double * tridiag_c;
-  double * tridiag_d;
+  //double * tridiag_a;
+  //double * tridiag_b;
+  //double * tridiag_c;
+  double ** tridiag_d;
+
+  /*Testing vars*/
+
+  double last_out_tau;
+
   int ap_size;      /**< number of relevant approximations for a given mode */
 
   int * approx;     /**< array of approximation flags holding at a given time: approx[index_ap] */
@@ -665,6 +670,7 @@ extern "C" {
 
   int perturb_workspace_free(
                              struct perturbs * ppt,
+                             struct background * pba,
                              int index_md,
                              struct perturb_workspace * ppw
                              );
@@ -814,7 +820,8 @@ extern "C" {
                             double k,
                             int n_ncdm,
                             int index_q,
-                            int l_max
+                            int l_max,
+                            double** tridiag_d
                             );
 
   int perturb_derivs(
