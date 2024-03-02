@@ -971,6 +971,7 @@ int input_read_parameters(
                                             pba->ncdm_si_type, 0, N_ncdm);
     class_read_int("background_si_verbose",
                  pba->background_si_verbose);
+    class_alloc(pba->ncdm_si_index, N_ncdm, errmsg);
 
     /* What kind of method to use if non relativistic self interaction method is found */
     class_read_int("ncdm_NR_SI_decoupling_method", pba->ncdm_NR_SI_decoupling_method)
@@ -979,7 +980,12 @@ int input_read_parameters(
     pba->N_si_ncdm=0;
     for(int i=0; i<N_ncdm; i++){
       //printf("%d\n", pba->ncdm_si_type[i]);
-      if (pba->ncdm_si_type[i] != 0) pba->N_si_ncdm += 1;
+      pba->ncdm_si_index[i] = __INT_MAX__;
+      if (pba->ncdm_si_type[i] != 0)
+      {
+        pba->ncdm_si_index[i] = pba->N_si_ncdm;
+        pba->N_si_ncdm += 1;
+      }
     }
 
     // Relaxation time input files
